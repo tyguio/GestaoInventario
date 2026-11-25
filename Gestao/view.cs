@@ -1,4 +1,6 @@
-// IInventoryView.cs - Interface for the view
+using System.Drawing;
+using System.Windows.Forms;
+
 public interface IInventoryView
 {
     void DisplayInventory(List<Item> items);
@@ -6,84 +8,264 @@ public interface IInventoryView
     void ShowMessage(string message);
     void RefreshView();
 }
- 
-// Example implementation for a WinForms app
+
 public class InventoryFormView : Form, IInventoryView
 {
-    private InventoryController _controller;
-    private DataGridView _itemsGrid;
-    // Other UI controls...
-    
+    private readonly InventoryController _controller;
+
+    private DataGridView _itemsGrid = null!;
+    private TextBox idTextBox = null!;
+    private TextBox nameTextBox = null!;
+    private TextBox descriptionTextBox = null!;
+    private NumericUpDown quantityNumeric = null!;
+    private NumericUpDown priceNumeric = null!;
+    private ComboBox categoryComboBox = null!;
+    private TextBox searchTextBox = null!;
+    private NumericUpDown thresholdNumeric = null!;
+    private Button addButton = null!;
+    private Button updateButton = null!;
+    private Button deleteButton = null!;
+    private Button searchButton = null!;
+    private Button lowStockButton = null!;
+    private Button refreshButton = null!;
+    private Button clearButton = null!;
+    private Label statusLabel = null!;
+
     public InventoryFormView(InventoryController controller)
     {
         _controller = controller;
         InitializeComponents();
+        _controller.EventLogged += OnControllerEventLogged;
+        RefreshView();
     }
-    
+
+    private void OnControllerEventLogged(string message)
+    {
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        if (InvokeRequired)
+        {
+            BeginInvoke(() => statusLabel.Text = message);
+        }
+        else
+        {
+            statusLabel.Text = message;
+        }
+    }
+
     private void InitializeComponents()
     {
-        // Setup form controls, buttons, grid, etc.
+        Text = "Gestão de Inventário";
+        Size = new Size(960, 620);
+        MinimumSize = new Size(860, 540);
+        StartPosition = FormStartPosition.CenterScreen;
+
+        var mainLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 4,
+            Padding = new Padding(10)
+        };
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        // Top search and filter bar
+        var topPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            WrapContents = true,
+            Padding = new Padding(0, 0, 0, 8)
+        };
+
+        searchTextBox = new TextBox { Width = 220, PlaceholderText = "Pesquisar nome, descrição ou categoria..." };
+        searchButton = new Button { Text = "Pesquisar", AutoSize = true };
+        var thresholdLabel = new Label { Text = "Limite Stock Baixo:", AutoSize = true, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(12, 6, 0, 0) };
+        thresholdNumeric = new NumericUpDown { Width = 65, Minimum = 1, Maximum = 10000, Value = 5 };
+        lowStockButton = new Button { Text = "Stock Baixo", AutoSize = true };
+        refreshButton = new Button { Text = "Mostrar Todos", AutoSize = true };
+
+        topPanel.Controls.Add(searchTextBox);
+        topPanel.Controls.Add(searchButton);
+        topPanel.Controls.Add(thresholdLabel);
+        topPanel.Controls.Add(thresholdNumeric);
+        topPanel.Controls.Add(lowStockButton);
+        topPanel.Controls.Add(refreshButton);
+
+        // Inventory grid
+        _itemsGrid = new DataGridView
+        {
+            Dock = DockStyle.Fill,
+            ReadOnly = true,
+            AllowUserToAddRows = false,
+            AllowUserToDeleteRows = false,
+            MultiSelect = false,
+            SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+        };
+
+        // Form panel
+        var formGroup = new GroupBox
+        {
+            Text = "Detalhes do Artigo",
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            Padding = new Padding(10)
+        };
+
+        var formLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            ColumnCount = 4
+        };
+        formLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        formLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+        formLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        formLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+
+        idTextBox = new TextBox { Dock = DockStyle.Fill, ReadOnly = true };
+        nameTextBox = new TextBox { Dock = DockStyle.Fill };
+        categoryComboBox = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown };
+        categoryComboBox.Items.AddRange(new object[] { "Eletrónica", "Ferramentas", "Consumíveis", "Escritório", "Outros" });
+        quantityNumeric = new NumericUpDown { Dock = DockStyle.Fill, Minimum = 0, Maximum = 1000000 };
+        priceNumeric = new NumericUpDown { Dock = DockStyle.Fill, Minimum = 0, Maximum = 1000000, DecimalPlaces = 2 };
+        descriptionTextBox = new TextBox { Dock = DockStyle.Fill };
+
+        formLayout.Controls.Add(new Label { Text = "ID:", AutoSize = true, Padding = new Padding(0, 6, 6, 0) }, 0, 0);
+        formLayout.Controls.Add(idTextBox, 1, 0);
+        formLayout.Controls.Add(new Label { Text = "Nome:", AutoSize = true, Padding = new Padding(10, 6, 6, 0) }, 2, 0);
+        formLayout.Controls.Add(nameTextBox, 3, 0);
+
+        formLayout.Controls.Add(new Label { Text = "Categoria:", AutoSize = true, Padding = new Padding(0, 6, 6, 0) }, 0, 1);
+        formLayout.Controls.Add(categoryComboBox, 1, 1);
+        formLayout.Controls.Add(new Label { Text = "Quantidade:", AutoSize = true, Padding = new Padding(10, 6, 6, 0) }, 2, 1);
+        formLayout.Controls.Add(quantityNumeric, 3, 1);
+
+        formLayout.Controls.Add(new Label { Text = "Preço (€):", AutoSize = true, Padding = new Padding(0, 6, 6, 0) }, 0, 2);
+        formLayout.Controls.Add(priceNumeric, 1, 2);
+        formLayout.Controls.Add(new Label { Text = "Descrição:", AutoSize = true, Padding = new Padding(10, 6, 6, 0) }, 2, 2);
+        formLayout.Controls.Add(descriptionTextBox, 3, 2);
+
+        var buttonPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            FlowDirection = FlowDirection.RightToLeft,
+            Padding = new Padding(0, 8, 0, 0)
+        };
+
+        clearButton = new Button { Text = "Limpar", AutoSize = true };
+        deleteButton = new Button { Text = "Remover", AutoSize = true };
+        updateButton = new Button { Text = "Atualizar Qtd", AutoSize = true };
+        addButton = new Button { Text = "Adicionar", AutoSize = true };
+
+        buttonPanel.Controls.Add(clearButton);
+        buttonPanel.Controls.Add(deleteButton);
+        buttonPanel.Controls.Add(updateButton);
+        buttonPanel.Controls.Add(addButton);
+
+        formLayout.Controls.Add(buttonPanel, 0, 3);
+        formLayout.SetColumnSpan(buttonPanel, 4);
+        formGroup.Controls.Add(formLayout);
+
+        statusLabel = new Label
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            Text = "Pronto.",
+            Padding = new Padding(0, 6, 0, 0)
+        };
+
+        mainLayout.Controls.Add(topPanel, 0, 0);
+        mainLayout.Controls.Add(_itemsGrid, 0, 1);
+        mainLayout.Controls.Add(formGroup, 0, 2);
+        mainLayout.Controls.Add(statusLabel, 0, 3);
+        Controls.Add(mainLayout);
+
         // Attach event handlers
+        addButton.Click += AddButton_Click;
+        updateButton.Click += UpdateButton_Click;
+        deleteButton.Click += DeleteButton_Click;
+        searchButton.Click += SearchButton_Click;
+        lowStockButton.Click += LowStockButton_Click;
+        refreshButton.Click += (_, _) => RefreshView();
+        clearButton.Click += (_, _) => ClearInputs();
+        _itemsGrid.SelectionChanged += ItemsGrid_SelectionChanged;
     }
- 
-    lowStockButton.Click += LowStockButton_Click; // add to 13-04-2025
-    
+
     public void DisplayInventory(List<Item> items)
     {
         _itemsGrid.DataSource = null;
-        _itemsGrid.DataSource = items;
+        _itemsGrid.DataSource = items.ToList();
     }
-    
+
     public void DisplayItemDetails(Item item)
     {
-        // Show item details in a form or panel
+        idTextBox.Text = item.Id;
+        nameTextBox.Text = item.Name;
+        descriptionTextBox.Text = item.Description;
+        categoryComboBox.Text = item.Category;
+        quantityNumeric.Value = Math.Clamp(item.Quantity, quantityNumeric.Minimum, quantityNumeric.Maximum);
+        priceNumeric.Value = Math.Clamp(item.Price, priceNumeric.Minimum, priceNumeric.Maximum);
     }
-    
+
     public void ShowMessage(string message)
     {
-        MessageBox.Show(message);
+        MessageBox.Show(message, "Gestão de Inventário", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
-    
+
     public void RefreshView()
     {
         DisplayInventory(_controller.GetInventory());
     }
- 
-    // Validate the input fields in the UI. (add to 13-04-2025)
+
+    private void ClearInputs()
+    {
+        idTextBox.Clear();
+        nameTextBox.Clear();
+        descriptionTextBox.Clear();
+        categoryComboBox.Text = string.Empty;
+        quantityNumeric.Value = 0;
+        priceNumeric.Value = 0;
+    }
+
+    private void ItemsGrid_SelectionChanged(object? sender, EventArgs e)
+    {
+        if (_itemsGrid.SelectedRows.Count > 0 && _itemsGrid.SelectedRows[0].DataBoundItem is Item selectedItem)
+        {
+            DisplayItemDetails(selectedItem);
+        }
+    }
+
     private bool ValidateInputs()
     {
-        // Check if the item name is empty.
         if (string.IsNullOrWhiteSpace(nameTextBox.Text))
         {
             ShowMessage("Item name cannot be empty.");
             return false;
         }
-        // Check if the quantity is negative.
         if (quantityNumeric.Value < 0)
         {
             ShowMessage("Item quantity cannot be negative.");
             return false;
         }
-        // Check if the price is negative.
         if (priceNumeric.Value < 0)
         {
             ShowMessage("Item price cannot be negative.");
             return false;
         }
-        // Check if the category is empty.
         if (string.IsNullOrWhiteSpace(categoryComboBox.Text))
         {
             ShowMessage("Item category cannot be empty.");
             return false;
         }
-        // Check if the ID is unique (if applicable).
-        // Assuming we have a method to check for uniqueness
-        if (_controller.GetItemById(idTextBox.Text) != null)
-        {
-            ShowMessage("Item ID must be unique.");
-            return false;
-        }
-        // Check if the description is empty.
         if (string.IsNullOrWhiteSpace(descriptionTextBox.Text))
         {
             ShowMessage("Item description cannot be empty.");
@@ -91,79 +273,63 @@ public class InventoryFormView : Form, IInventoryView
         }
         return true;
     }
- 
-    // Event handlers for user interactions
-    private void AddButton_Click(object sender, EventArgs e)
+
+    private void AddButton_Click(object? sender, EventArgs e)
     {
-        // Validate inputs before adding a new item (add to 13-04-2025)
         if (!ValidateInputs())
         {
             return;
         }
- 
-        // Collect input from UI
+
         string name = nameTextBox.Text;
         string description = descriptionTextBox.Text;
         int quantity = (int)quantityNumeric.Value;
         decimal price = priceNumeric.Value;
         string category = categoryComboBox.Text;
-        
-        try //add to 13-04-2025
+
+        try
         {
             if (_controller.AddNewItem(name, description, quantity, price, category))
             {
                 ShowMessage("Item added successfully");
+                ClearInputs();
                 RefreshView();
             }
             else
             {
-                ShowMessage("Error adding item");
+                ShowMessage("Error adding item (verifique se já existe um artigo com o mesmo nome).");
             }
         }
         catch (Exception ex)
         {
             ShowMessage($"Error adding item: {ex.Message}");
-            return;
         }
- 
     }
- 
-    //Search button event handler (add to 13-04-2025)
-    private void SearchButton_Click(object sender, EventArgs e)
+
+    private void SearchButton_Click(object? sender, EventArgs e)
     {
-        // Retrieve the search query from the searchTextBox
         string query = searchTextBox.Text.Trim();
- 
-        // Call the SearchInventory method from the controller
         List<Item> searchResults = _controller.SearchInventory(query);
- 
-        // Check if any items were found and update the UI accordingly
-        if (searchResults != null && searchResults.Count > 0)
+
+        DisplayInventory(searchResults);
+        if (searchResults.Count > 0)
         {
-            // Update the DataGridView with the search results
-            DisplayInventory(searchResults);
             ShowMessage($"Search completed. {searchResults.Count} item(s) found.");
         }
         else
         {
-            // Display an informative message if no items match the search criteria
             ShowMessage("No items found matching the search criteria.");
         }
     }
- 
-    // Indicate the low stock inventory (add to 13-04-2025)
-    private void LowStockButton_Click(object sender, EventArgs e)
+
+    private void LowStockButton_Click(object? sender, EventArgs e)
     {
-        // Define the threshold. It can be obtained from a control
-        int threshold = 5;
- 
-        // Call the controller method to get the list of items with low stock
+        int threshold = (int)thresholdNumeric.Value;
         List<Item> lowStockItems = _controller.GetLowStockAlert(threshold);
- 
-        // Update the user interface with the low stock items
-        if (lowStockItems != null && lowStockItems.Count > 0)
+
+        DisplayInventory(lowStockItems);
+        if (lowStockItems.Count > 0)
         {
-            DisplayInventory(lowStockItems);
             ShowMessage($"Low stock alert: {lowStockItems.Count} item(s) found.");
         }
         else
@@ -171,12 +337,16 @@ public class InventoryFormView : Form, IInventoryView
             ShowMessage("No low stock items found.");
         }
     }
- 
-    // Update item (add to 13-04-2025)
-    private void UpdateButton_Click(object sender, EventArgs e)
+
+    private void UpdateButton_Click(object? sender, EventArgs e)
     {
-        // Collect input from UI
-        string id = idTextBox.Text;
+        string id = idTextBox.Text.Trim();
+        if (string.IsNullOrEmpty(id))
+        {
+            ShowMessage("Please select an item to update.");
+            return;
+        }
+
         int newQuantity = (int)quantityNumeric.Value;
         if (_controller.UpdateItemQuantity(id, newQuantity))
         {
@@ -188,39 +358,31 @@ public class InventoryFormView : Form, IInventoryView
             ShowMessage("Error updating item");
         }
     }
- 
-    // Remove item (add to 13-04-2025)
-    private void DeleteButton_Click(object sender, EventArgs e)
+
+    private void DeleteButton_Click(object? sender, EventArgs e)
     {
-        // Check if there is at least one selected row in the DataGridView displaying the items.
-        if (_itemsGrid.SelectedRows.Count > 0)
+        if (_itemsGrid.SelectedRows.Count == 0)
         {
-            // Retrieve the ID of the selected item.
-            // Assuming that the "Id" column is available in the DataGridView.
-            string selectedItemId = _itemsGrid.SelectedRows[0].Cells["Id"].Value.ToString();
-            
-            // Call the controller method to delete the item.
-            if (_controller.DeleteItem(id))
-            {
-                // Refresh the view to reflect the changes.
-                ShowMessage("Item deleted successfully");
-                RefreshView();
-            }
-            else
-            {
-                // Inform the user if there was an error deleting the item.
-                ShowMessage("Error deleting item");
-            }
-            else
-            {
-                // Inform the user to select an item if no row was selected.
-                ShowMessage("Please select an item to remove.");
-            }
+            ShowMessage("Please select an item to remove.");
+            return;
+        }
+
+        string? selectedItemId = _itemsGrid.SelectedRows[0].Cells["Id"].Value?.ToString();
+        if (string.IsNullOrEmpty(selectedItemId))
+        {
+            ShowMessage("Invalid item selection.");
+            return;
+        }
+
+        if (_controller.RemoveItem(selectedItemId))
+        {
+            ShowMessage("Item deleted successfully");
+            ClearInputs();
+            RefreshView();
+        }
+        else
+        {
+            ShowMessage("Error deleting item");
+        }
     }
- 
- 
- 
- 
-    // Other event handlers for update, delete, search, etc.
 }
-Fechar
